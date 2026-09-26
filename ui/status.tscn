@@ -1,8 +1,8 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://ui/status.gd" id="1_status"]
-[ext_resource type="Texture2D" uid="uid://fo6r3bbt8xyl" path="res://ui/status.png" id="2_bg"]
-[ext_resource type="Texture2D" uid="uid://re2y5wm6al4l" path="res://art/pandatemp.png" id="3_panda"]
+[ext_resource type="Texture2D" uid="uid://7swb22nlrp84" path="res://ui/statusDay.png" id="2_bg"]
+[ext_resource type="Texture2D" uid="uid://c1v1v243pwr42" path="res://art/base_panda.png" id="3_panda"]
 [ext_resource type="FontFile" uid="uid://cmycby53am1kc" path="res://ui/Game Font.ttf" id="4_font"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBox_name_edit"]
@@ -40,6 +40,7 @@ mouse_filter = 2
 theme = SubResource("Theme_status")
 
 [node name="Background" type="TextureRect" parent="Root"]
+unique_name_in_owner = true
 layout_mode = 0
 offset_right = 144.0
 offset_bottom = 142.0
@@ -47,15 +48,24 @@ mouse_filter = 2
 texture = ExtResource("2_bg")
 
 [node name="FieldPanda" type="TextureRect" parent="Root"]
+unique_name_in_owner = true
 layout_mode = 0
-offset_left = 27.0
-offset_top = 21.0
-offset_right = 63.0
-offset_bottom = 85.0
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 62.0
+offset_bottom = 77.0
 mouse_filter = 2
 texture = ExtResource("3_panda")
-expand_mode = 1
-stretch_mode = 5
+
+[node name="SleepButton" type="TextureButton" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 15.0
+offset_top = 15.0
+offset_right = 28.0
+offset_bottom = 28.0
+focus_mode = 0
+mouse_default_cursor_shape = 2
 
 [node name="MoodBox" type="VBoxContainer" parent="Root"]
 layout_mode = 0
@@ -78,28 +88,42 @@ layout_mode = 2
 text = "Mood: 50 / 100"
 horizontal_alignment = 1
 
+[node name="NameCaption" type="Label" parent="Root"]
+layout_mode = 0
+offset_left = 71.0
+offset_top = 31.0
+offset_right = 124.0
+offset_bottom = 43.0
+theme_override_font_sizes/font_size = 8
+text = "Name:"
+vertical_alignment = 2
+
 [node name="NameLabel" type="Label" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 72.0
-offset_top = 31.0
-offset_right = 123.0
-offset_bottom = 43.0
+offset_left = 71.0
+offset_top = 44.0
+offset_right = 124.0
+offset_bottom = 55.0
 mouse_filter = 0
-text = "Panda"
-horizontal_alignment = 2
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 8
+text = "Click Me!"
+horizontal_alignment = 1
+vertical_alignment = 1
 clip_text = true
 
 [node name="NameEdit" type="LineEdit" parent="Root"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 0
-offset_left = 72.0
-offset_top = 31.0
-offset_right = 123.0
-offset_bottom = 43.0
-alignment = 2
-max_length = 12
+offset_left = 71.0
+offset_top = 43.0
+offset_right = 124.0
+offset_bottom = 54.0
+grow_vertical = 2
+theme_override_font_sizes/font_size = 8
+alignment = 1
 context_menu_enabled = false
 flat = true
 

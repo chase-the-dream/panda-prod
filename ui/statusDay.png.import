@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://re2y5wm6al4l"
-path="res://.godot/imported/pandatemp.png-293f97b4fe9e65dafc27ecc39adfd66e.ctex"
+uid="uid://7swb22nlrp84"
+path="res://.godot/imported/statusDay.png-58d4fbb676846fb65aa2af660bd704f5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/pandatemp.png"
-dest_files=["res://.godot/imported/pandatemp.png-293f97b4fe9e65dafc27ecc39adfd66e.ctex"]
+source_file="res://ui/statusDay.png"
+dest_files=["res://.godot/imported/statusDay.png-58d4fbb676846fb65aa2af660bd704f5.ctex"]
 
 [params]
 

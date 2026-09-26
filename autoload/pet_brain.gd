@@ -1,10 +1,11 @@
 # pet_brain.gd - autoload singleton ("PetBrain"). Tracks the pet's 1–100 mood, which drifts
 # based on the Classifier category of the focused app: up when productive, down slowly when
-# neutral, down fast when distracted.
+# neutral, down fast when distracted. While sleeping (the user is away) the mood is frozen.
 extends Node
 
 signal mood_changed(mood: float, state: String)
 signal name_changed(pet_name: String)
+signal sleep_changed(sleeping: bool)
 
 # Mood points per minute.
 const PRODUCTIVE_RATE := 3.0
@@ -18,12 +19,13 @@ const MOOD_MAX := 100.0
 # [upper bound (inclusive), name], ascending. Add rows here for more states.
 const STATES := [[33, "Chud"], [66, "Content"], [100, "Chad"]]
 
-const DEFAULT_NAME := "Panda"
-const NAME_MAX_LENGTH := 12  # fits the status window's name slot
+const DEFAULT_NAME := "Click Me!"
+const NAME_MAX_LENGTH := 12  # fits the status window's 51 px name tag at font size 8
 
 var mood := 50.0
 var pet_name := DEFAULT_NAME  # not "name", which would shadow Node.name
 var category := Classifier.Category.NEUTRAL
+var sleeping := false
 
 var _last_int := -1
 var _last_state := ""
@@ -34,6 +36,7 @@ func _ready() -> void:
 	var data := SaveManager.load_json(SaveManager.SAVE_PATH)
 	mood = clampf(float(data.get("mood", mood)), MOOD_MIN, MOOD_MAX)
 	pet_name = _clean_name(str(data.get("name", DEFAULT_NAME)), DEFAULT_NAME)
+	sleeping = bool(data.get("sleeping", false))
 
 	Tracker.active_app_changed.connect(_on_active_app_changed)
 	Classifier.lists_changed.connect(_reclassify)
@@ -54,6 +57,7 @@ func save() -> void:
 		"version": SaveManager.SAVE_VERSION,
 		"mood": mood,
 		"name": pet_name,
+		"sleeping": sleeping,
 	})
 
 
@@ -64,6 +68,15 @@ func set_pet_name(new_name: String) -> void:
 		return
 	pet_name = cleaned
 	name_changed.emit(pet_name)
+	save()
+
+
+# Sleep mode: the user is away, so mood neither rises nor falls until they wake the pet.
+func set_sleeping(value: bool) -> void:
+	if value == sleeping:
+		return
+	sleeping = value
+	sleep_changed.emit(sleeping)
 	save()
 
 
@@ -90,6 +103,8 @@ func _reclassify() -> void:
 
 
 func _process(delta: float) -> void:
+	if sleeping:
+		return
 	var rate: float
 	match category:
 		Classifier.Category.PRODUCTIVE:

@@ -1,14 +1,19 @@
 [gd_scene format=3 uid="uid://dxvy43sh1dtit"]
 
 [ext_resource type="Script" uid="uid://c1bbkamph5tl1" path="res://pet/pet.gd" id="1_xibd0"]
-[ext_resource type="Texture2D" uid="uid://re2y5wm6al4l" path="res://art/pandatemp.png" id="2_panda"]
+[ext_resource type="Texture2D" uid="uid://c1v1v243pwr42" path="res://art/base_panda.png" id="2_panda"]
+[ext_resource type="Script" path="res://pet/panda_sprite.gd" id="3_sprite"]
 
 [node name="Pet" type="Node2D" unique_id=1481838050]
 script = ExtResource("1_xibd0")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1514212798]
-position = Vector2(128, 128)
+position = Vector2(128, 162)
+scale = Vector2(4, 4)
 texture = ExtResource("2_panda")
+region_enabled = true
+region_rect = Rect2(0, 0, 32, 47)
+script = ExtResource("3_sprite")
 
 [node name="Label" type="Label" parent="." unique_id=2041852220]
 offset_top = 256.0
