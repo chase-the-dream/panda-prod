@@ -23,6 +23,10 @@ Classifier="*res://autoload/classifier.gd"
 PetBrain="*res://autoload/pet_brain.gd"
 Achievements="*res://autoload/achievements.gd"
 
+[debug]
+
+file_logging/enable_file_logging.pc=false
+
 [display]
 
 window/size/viewport_width=256

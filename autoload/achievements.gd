@@ -37,8 +37,11 @@ var _unlocked: Array[StringName] = []
 
 
 func _ready() -> void:
-	for id in SaveManager.load_json(PATH).get("unlocked", []):
-		if not StringName(id) in _unlocked:
+	var saved = SaveManager.load_json(PATH).get("unlocked")
+	if not saved is Array:
+		return
+	for id in saved:
+		if id is String and not StringName(id) in _unlocked:
 			_unlocked.append(StringName(id))
 
 
