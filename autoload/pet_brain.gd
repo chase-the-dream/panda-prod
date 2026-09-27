@@ -114,8 +114,17 @@ func _process(delta: float) -> void:
 		_:
 			rate = NEUTRAL_RATE
 	mood = clampf(mood + rate / 60.0 * RATE_SCALE * delta, MOOD_MIN, MOOD_MAX)
+	_notify_mood()
 
-	# Only notify when the displayed value or state changes, not every frame.
+
+# One-off boosts (or hits) on top of the drift, e.g. petting.
+func change_mood(amount: float) -> void:
+	mood = clampf(mood + amount, MOOD_MIN, MOOD_MAX)
+	_notify_mood()
+
+
+# Only notify when the displayed value or state changes, not every frame.
+func _notify_mood() -> void:
 	var state := get_state()
 	if int(mood) != _last_int or state != _last_state:
 		_last_int = int(mood)
