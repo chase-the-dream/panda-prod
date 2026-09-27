@@ -21,6 +21,7 @@ Tracker="*res://autoload/tracker.gd"
 SaveManager="*res://autoload/save_manager.gd"
 Classifier="*res://autoload/classifier.gd"
 PetBrain="*res://autoload/pet_brain.gd"
+Achievements="*res://autoload/achievements.gd"
 
 [display]
 

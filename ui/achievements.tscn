@@ -1,0 +1,58 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://ui/achievements.gd" id="1_achievements"]
+[ext_resource type="Texture2D" uid="uid://dnf67sttp8scy" path="res://ui/achievements.png" id="2_bg"]
+[ext_resource type="Texture2D" uid="uid://bxo3eo633fbfs" path="res://ui/arrowHover.png" id="9_arrow_hover"]
+
+[node name="Achievements" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 144.0
+offset_bottom = 142.0
+mouse_filter = 2
+script = ExtResource("1_achievements")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 0
+offset_right = 144.0
+offset_bottom = 142.0
+mouse_filter = 2
+texture = ExtResource("2_bg")
+
+[node name="BackButton" type="TextureButton" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 14.0
+offset_top = 14.0
+offset_right = 29.0
+offset_bottom = 29.0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+texture_pressed = ExtResource("9_arrow_hover")
+texture_hover = ExtResource("9_arrow_hover")
+
+[node name="Title" type="Label" parent="."]
+layout_mode = 0
+offset_left = 13.0
+offset_top = 29.0
+offset_right = 125.0
+offset_bottom = 41.0
+theme_override_colors/font_color = Color(0.92156863, 0.92941177, 0.9137255, 1)
+text = "Achievements"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="List" type="ScrollContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 23.0
+offset_top = 46.0
+offset_right = 116.0
+offset_bottom = 131.0
+horizontal_scroll_mode = 0
+
+[node name="Rows" type="VBoxContainer" parent="List"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2

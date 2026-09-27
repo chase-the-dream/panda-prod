@@ -4,17 +4,68 @@
 [ext_resource type="Texture2D" uid="uid://7swb22nlrp84" path="res://ui/statusDay.png" id="2_bg"]
 [ext_resource type="Texture2D" uid="uid://c1v1v243pwr42" path="res://art/base_panda.png" id="3_panda"]
 [ext_resource type="FontFile" uid="uid://cmycby53am1kc" path="res://ui/Game Font.ttf" id="4_font"]
+[ext_resource type="PackedScene" path="res://ui/config.tscn" id="5_config"]
+[ext_resource type="PackedScene" path="res://ui/achievements.tscn" id="6_achievements"]
+[ext_resource type="Texture2D" uid="uid://dntmmuw5qc6tv" path="res://ui/configBanner.png" id="7_config_banner"]
+[ext_resource type="Texture2D" uid="uid://cmcv023a430r7" path="res://ui/achievementBanner.png" id="8_achievement_banner"]
+[ext_resource type="Texture2D" uid="uid://c7xppnnubb6n8" path="res://ui/infoBanner.png" id="9_info_banner"]
+[ext_resource type="PackedScene" path="res://ui/info.tscn" id="10_info"]
+
+[sub_resource type="AtlasTexture" id="Atlas_config_tab"]
+atlas = ExtResource("7_config_banner")
+region = Rect2(0, 0, 14, 18)
+
+[sub_resource type="AtlasTexture" id="Atlas_config_tab_hover"]
+atlas = ExtResource("7_config_banner")
+region = Rect2(14, 0, 14, 18)
+
+[sub_resource type="AtlasTexture" id="Atlas_achievements_tab"]
+atlas = ExtResource("8_achievement_banner")
+region = Rect2(0, 0, 14, 18)
+
+[sub_resource type="AtlasTexture" id="Atlas_achievements_tab_hover"]
+atlas = ExtResource("8_achievement_banner")
+region = Rect2(14, 0, 14, 18)
 
 [sub_resource type="StyleBoxEmpty" id="StyleBox_name_edit"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBox_button"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_scroll"]
+content_margin_left = 1.0
+content_margin_right = 1.0
+bg_color = Color(0.78039217, 0.8117647, 0.8, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_grabber"]
+content_margin_left = 1.0
+content_margin_right = 1.0
+bg_color = Color(0.22352941, 0.2901961, 0.3137255, 1)
 
 [sub_resource type="Theme" id="Theme_status"]
 default_font = ExtResource("4_font")
 default_font_size = 10
+Button/colors/font_color = Color(0.22352941, 0.2901961, 0.3137255, 1)
+Button/colors/font_focus_color = Color(0.22352941, 0.2901961, 0.3137255, 1)
+Button/colors/font_hover_color = Color(0.64705884, 0.1882353, 0.1882353, 1)
+Button/colors/font_hover_pressed_color = Color(0.64705884, 0.1882353, 0.1882353, 1)
+Button/colors/font_pressed_color = Color(0.64705884, 0.1882353, 0.1882353, 1)
+Button/font_sizes/font_size = 8
+Button/styles/disabled = SubResource("StyleBox_button")
+Button/styles/focus = SubResource("StyleBox_button")
+Button/styles/hover = SubResource("StyleBox_button")
+Button/styles/hover_pressed = SubResource("StyleBox_button")
+Button/styles/normal = SubResource("StyleBox_button")
+Button/styles/pressed = SubResource("StyleBox_button")
 Label/colors/font_color = Color(0.22352941, 0.2901961, 0.3137255, 1)
 LineEdit/colors/caret_color = Color(0.22352941, 0.2901961, 0.3137255, 1)
 LineEdit/colors/font_color = Color(0.22352941, 0.2901961, 0.3137255, 1)
 LineEdit/styles/focus = SubResource("StyleBox_name_edit")
 LineEdit/styles/normal = SubResource("StyleBox_name_edit")
+VScrollBar/styles/grabber = SubResource("StyleBox_grabber")
+VScrollBar/styles/grabber_highlight = SubResource("StyleBox_grabber")
+VScrollBar/styles/grabber_pressed = SubResource("StyleBox_grabber")
+VScrollBar/styles/scroll = SubResource("StyleBox_scroll")
+VScrollBar/styles/scroll_focus = SubResource("StyleBox_scroll")
 
 [node name="Status" type="Window"]
 transparent_bg = true
@@ -39,7 +90,14 @@ grow_vertical = 2
 mouse_filter = 2
 theme = SubResource("Theme_status")
 
-[node name="Background" type="TextureRect" parent="Root"]
+[node name="StatusPage" type="Control" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 144.0
+offset_bottom = 142.0
+mouse_filter = 2
+
+[node name="Background" type="TextureRect" parent="Root/StatusPage"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_right = 144.0
@@ -47,7 +105,7 @@ offset_bottom = 142.0
 mouse_filter = 2
 texture = ExtResource("2_bg")
 
-[node name="FieldPanda" type="TextureRect" parent="Root"]
+[node name="FieldPanda" type="TextureRect" parent="Root/StatusPage"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 30.0
@@ -57,17 +115,55 @@ offset_bottom = 77.0
 mouse_filter = 2
 texture = ExtResource("3_panda")
 
-[node name="SleepButton" type="TextureButton" parent="Root"]
+[node name="SleepButton" type="TextureButton" parent="Root/StatusPage"]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 15.0
-offset_top = 15.0
-offset_right = 28.0
-offset_bottom = 28.0
+offset_left = 14.0
+offset_top = 14.0
+offset_right = 29.0
+offset_bottom = 29.0
 focus_mode = 0
 mouse_default_cursor_shape = 2
 
-[node name="MoodBox" type="VBoxContainer" parent="Root"]
+[node name="InfoTab" type="TextureButton" parent="Root/StatusPage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 82.0
+offset_top = 13.0
+offset_right = 96.0
+offset_bottom = 31.0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+texture_pressed = ExtResource("9_info_banner")
+texture_hover = ExtResource("9_info_banner")
+
+[node name="ConfigTab" type="TextureButton" parent="Root/StatusPage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 96.0
+offset_top = 13.0
+offset_right = 110.0
+offset_bottom = 31.0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+texture_normal = SubResource("Atlas_config_tab")
+texture_pressed = SubResource("Atlas_config_tab_hover")
+texture_hover = SubResource("Atlas_config_tab_hover")
+
+[node name="AchievementsTab" type="TextureButton" parent="Root/StatusPage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 110.0
+offset_top = 13.0
+offset_right = 124.0
+offset_bottom = 31.0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+texture_normal = SubResource("Atlas_achievements_tab")
+texture_pressed = SubResource("Atlas_achievements_tab_hover")
+texture_hover = SubResource("Atlas_achievements_tab_hover")
+
+[node name="MoodBox" type="VBoxContainer" parent="Root/StatusPage"]
 layout_mode = 0
 offset_left = 21.0
 offset_top = 93.0
@@ -76,19 +172,19 @@ offset_bottom = 133.0
 mouse_filter = 2
 alignment = 1
 
-[node name="StateLabel" type="Label" parent="Root/MoodBox"]
+[node name="StateLabel" type="Label" parent="Root/StatusPage/MoodBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Content"
 horizontal_alignment = 1
 
-[node name="ValueLabel" type="Label" parent="Root/MoodBox"]
+[node name="ValueLabel" type="Label" parent="Root/StatusPage/MoodBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Mood: 50 / 100"
 horizontal_alignment = 1
 
-[node name="NameCaption" type="Label" parent="Root"]
+[node name="NameCaption" type="Label" parent="Root/StatusPage"]
 layout_mode = 0
 offset_left = 71.0
 offset_top = 31.0
@@ -98,7 +194,7 @@ theme_override_font_sizes/font_size = 8
 text = "Name:"
 vertical_alignment = 2
 
-[node name="NameLabel" type="Label" parent="Root"]
+[node name="NameLabel" type="Label" parent="Root/StatusPage"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 71.0
@@ -113,7 +209,7 @@ horizontal_alignment = 1
 vertical_alignment = 1
 clip_text = true
 
-[node name="NameEdit" type="LineEdit" parent="Root"]
+[node name="NameEdit" type="LineEdit" parent="Root/StatusPage"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 0
@@ -126,6 +222,21 @@ theme_override_font_sizes/font_size = 8
 alignment = 1
 context_menu_enabled = false
 flat = true
+
+[node name="ConfigPage" parent="Root" instance=ExtResource("5_config")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+
+[node name="AchievementsPage" parent="Root" instance=ExtResource("6_achievements")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+
+[node name="InfoPage" parent="Root" instance=ExtResource("10_info")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
 
 [node name="DragHandle" type="Control" parent="Root"]
 unique_name_in_owner = true

@@ -1,0 +1,181 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://ui/config.gd" id="1_config"]
+[ext_resource type="Texture2D" uid="uid://bk714qm4v2yll" path="res://ui/config.png" id="2_bg"]
+[ext_resource type="Texture2D" uid="uid://bk013rqlombqt" path="res://ui/configButton.png" id="3_button"]
+[ext_resource type="Texture2D" uid="uid://bxo3eo633fbfs" path="res://ui/arrowHover.png" id="9_arrow_hover"]
+[ext_resource type="Texture2D" uid="uid://cw3dmxplobuk7" path="res://ui/greenArrow.png" id="10_green_arrow"]
+
+[sub_resource type="AtlasTexture" id="Atlas_button_normal"]
+atlas = ExtResource("3_button")
+region = Rect2(0, 0, 68, 14)
+
+[sub_resource type="AtlasTexture" id="Atlas_button_hover"]
+atlas = ExtResource("3_button")
+region = Rect2(68, 0, 68, 14)
+
+[sub_resource type="AtlasTexture" id="Atlas_add"]
+atlas = ExtResource("10_green_arrow")
+region = Rect2(0, 0, 17, 17)
+
+[sub_resource type="AtlasTexture" id="Atlas_add_hover"]
+atlas = ExtResource("10_green_arrow")
+region = Rect2(17, 0, 17, 17)
+
+[node name="Config" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 144.0
+offset_bottom = 142.0
+mouse_filter = 2
+script = ExtResource("1_config")
+
+[node name="Background" type="TextureRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 144.0
+offset_bottom = 142.0
+mouse_filter = 2
+texture = ExtResource("2_bg")
+
+[node name="BackButton" type="TextureButton" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 14.0
+offset_top = 14.0
+offset_right = 29.0
+offset_bottom = 29.0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+texture_pressed = ExtResource("9_arrow_hover")
+texture_hover = ExtResource("9_arrow_hover")
+
+[node name="Title" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 13.0
+offset_top = 29.0
+offset_right = 125.0
+offset_bottom = 41.0
+theme_override_colors/font_color = Color(0.92156863, 0.92941177, 0.9137255, 1)
+text = "Configuration"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Menu" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+anchors_preset = 0
+offset_right = 144.0
+offset_bottom = 142.0
+mouse_filter = 2
+
+[node name="DistractionsButton" type="TextureButton" parent="Menu"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 35.0
+offset_top = 58.0
+offset_right = 103.0
+offset_bottom = 72.0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+texture_normal = SubResource("Atlas_button_normal")
+texture_hover = SubResource("Atlas_button_hover")
+
+[node name="Label" type="Label" parent="Menu/DistractionsButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 8
+text = "Distractions"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ProductivesButton" type="TextureButton" parent="Menu"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 35.0
+offset_top = 80.0
+offset_right = 103.0
+offset_bottom = 94.0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+texture_normal = SubResource("Atlas_button_normal")
+texture_hover = SubResource("Atlas_button_hover")
+
+[node name="Label" type="Label" parent="Menu/ProductivesButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 8
+text = "Productives"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Entries" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+anchors_preset = 0
+offset_right = 144.0
+offset_bottom = 142.0
+mouse_filter = 2
+
+[node name="List" type="ScrollContainer" parent="Entries"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 23.0
+offset_top = 48.0
+offset_right = 116.0
+offset_bottom = 99.0
+horizontal_scroll_mode = 0
+
+[node name="Rows" type="VBoxContainer" parent="Entries/List"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 0
+
+[node name="NewEntryCaption" type="Label" parent="Entries"]
+layout_mode = 0
+offset_left = 21.0
+offset_top = 106.0
+offset_right = 117.0
+offset_bottom = 118.0
+theme_override_colors/font_color = Color(0.92156863, 0.92941177, 0.9137255, 1)
+theme_override_font_sizes/font_size = 8
+text = "New Entry:"
+vertical_alignment = 1
+
+[node name="NewEntry" type="LineEdit" parent="Entries"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 23.0
+offset_top = 120.0
+offset_right = 99.0
+offset_bottom = 131.0
+grow_vertical = 2
+theme_override_font_sizes/font_size = 8
+max_length = 64
+keep_editing_on_text_submit = true
+context_menu_enabled = false
+flat = true
+
+[node name="AddButton" type="TextureButton" parent="Entries"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 102.0
+offset_top = 118.0
+offset_right = 119.0
+offset_bottom = 135.0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+texture_normal = SubResource("Atlas_add")
+texture_pressed = SubResource("Atlas_add_hover")
+texture_hover = SubResource("Atlas_add_hover")

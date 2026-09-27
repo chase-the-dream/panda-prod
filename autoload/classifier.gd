@@ -43,6 +43,41 @@ func set_lists(new_productive: PackedStringArray, new_distracting: PackedStringA
 	lists_changed.emit()
 
 
+func get_keywords(category: Category) -> PackedStringArray:
+	return productive if category == Category.PRODUCTIVE else distracting
+
+
+# For the config UI: add one keyword to the productive or distracting list, and save. Blanks and
+# case-insensitive duplicates are ignored (returns false).
+func add_keyword(category: Category, keyword: String) -> bool:
+	keyword = keyword.strip_edges()
+	var list := get_keywords(category)
+	if keyword.is_empty():
+		return false
+	for kw in list:
+		if kw.nocasecmp_to(keyword) == 0:
+			return false
+	list.append(keyword)
+	_set_keywords(category, list)
+	return true
+
+
+func remove_keyword(category: Category, keyword: String) -> void:
+	var list := get_keywords(category)
+	var i := list.find(keyword)
+	if i == -1:
+		return
+	list.remove_at(i)
+	_set_keywords(category, list)
+
+
+func _set_keywords(category: Category, list: PackedStringArray) -> void:
+	if category == Category.PRODUCTIVE:
+		set_lists(list, distracting)
+	else:
+		set_lists(productive, list)
+
+
 # Drop the user's custom lists and go back to the shipped defaults.
 func reset_to_defaults() -> void:
 	if FileAccess.file_exists(USER_PATH):

@@ -1,4 +1,4 @@
-# pet.gd - attach to the root Node2D ("Pet") with children Sprite2D (panda_sprite.gd) and Label.
+# pet.gd - attach to the root Node2D ("Pet") with a Sprite2D child (panda_sprite.gd).
 # The whole OS window is the pet: dragging, throwing, gravity and clinging to the screen
 # edges all move the window itself. Collisions use the sprite's rect against the usable
 # (taskbar-excluded) rect of the monitor it's on. On the floor, a small activity AI has the
@@ -16,7 +16,7 @@ extends Node2D
 
 # CLING_CEILING is only reached by climbing onto the roof; a throw never sticks to it.
 enum Pose { HELD, AIRBORNE, GROUNDED, CLING_LEFT, CLING_RIGHT, CLING_CEILING }
-enum Activity { IDLE, SIT, WALK, EAT, PET, PROUD }
+enum Activity { IDLE, SIT, WALK, EAT, GAME, PET, PROUD }
 
 signal pose_changed(pose: Pose)
 
@@ -42,9 +42,16 @@ const THROW_FACE_MIN := 15.0
 # Held by the tail: the body's mass centre swings below the cursor (a damped Verlet pendulum), so
 # moving the mouse swings it, up to SWING_MAX_ANGLE either way. The throw is the mass centre's
 # speed, so letting go mid-swing flings it off. The swing needs more room than the pet window, so
-# the window grows to HELD_SIZE (the tail at its centre) until it's let go. A tap (a plain click,
-# or the first of a double-click) puts it back exactly where it was.
+# it dangles in a second, HELD_SIZE window (the tail at its centre) until it's let go. A tap (a
+# plain click) puts it back exactly where it was.
+#
+# A window's picture reaches the screen a few frames after the window itself moves, so a window
+# that jumps shows its old picture in the new spot for a moment. So neither window ever changes
+# size or picks a new pose as it jumps: the idle one waits off-screen, already drawing the pose it
+# will need next (the dangle at rest; while held, how the pet will look when let go), and a grab
+# or release just swaps which window is on screen.
 const HELD_SIZE := Vector2i(448, 448)  # px; the farthest pixel swings ~203 px from the grip
+const OFFSCREEN := Vector2i(-20000, -20000)  # where the unused window waits (Win32 wants 16-bit)
 # A stronger pull back to hanging means the same mouse movement swings it less, and the damping
 # settles it sooner.
 const SWING_GRAVITY := 3200.0  # px/s²; ~1 s swing period
@@ -54,19 +61,21 @@ const TAP_TIME := 0.15  # s
 const TAP_MOVE := 8.0  # px of mouse travel
 
 # Activity AI. Durations are [min, max] seconds; a meal is two passes of the eat animation
-# (~12.7 s). Averaged out, a Content or Chad panda spends roughly 30% of its floor time idle, 26%
-# walking, 22% sitting and 22% eating. A Chud one doesn't eat (a nudge to be productive) and sits instead:
-# about 30% idle, 26% walking, 44% sitting.
+# (~12.7 s), and a gaming session nine passes of the game animation (~12 s). Averaged out, a panda
+# spends roughly 30% of its floor time idle, 26% walking, 22% sitting and 22% on its treat: a
+# Content or Chad one eats bamboo, a Chud one doesn't eat (a nudge to be productive) and games
+# instead.
 const IDLE_TIME := Vector2(2.0, 5.0)
 const SIT_TIME := Vector2(8.0, 18.0)
 const WALK_TIME := Vector2(4.0, 8.0)
 const SETTLE_TIME := Vector2(1.0, 3.0)  # first idle after landing, being put down or waking
 const WALK_CHANCE := 0.5  # when an idle ends; the rest of the time it may sit...
 const SIT_CHANCE := 0.2
-const EAT_CHANCE := 0.2  # ...or eat (only in EAT_MOODS; otherwise it sits instead)...
+const EAT_CHANCE := 0.2  # ...or eat (only in EAT_MOODS) or game (only in GAME_MOODS)...
 # ...and otherwise idles again, turning around.
 const EAT_MOODS := ["Content", "Chad"]  # PetBrain.get_state() names it's allowed to eat in
 const CHUD_STATE := "Chud"  # the PetBrain.get_state() name that swaps in the glum animations
+const GAME_MOODS := [CHUD_STATE]  # ...and the ones it games in
 const WALK_SPEED := 55.0  # px/s
 const MIN_WALK_ROOM := 150.0  # px; less room than this ahead and it walks the other way
 
@@ -95,12 +104,11 @@ const PROUD_MOOD := 10.0
 const StatusScene := preload("res://ui/status.tscn")
 
 @onready var sprite: PandaSprite = $Sprite2D
-@onready var label: Label = $Label
 
 var pose := Pose.AIRBORNE
 var activity := Activity.IDLE
 
-var _pos := Vector2.ZERO  # window position, kept as floats between ticks
+var _pos := Vector2.ZERO  # window position, kept as floats between ticks (held: the held window's)
 var _vel := Vector2.ZERO
 var _samples: Array = []  # [time_sec, mass centre] while held
 var _swing_com := Vector2.ZERO  # held: the body's mass centre on screen
@@ -108,10 +116,10 @@ var _swing_prev := Vector2.ZERO  # ...on the previous tick (Verlet keeps velocit
 var _grab_pos := Vector2.ZERO  # window position when picked up, restored after a tap
 var _grab_mouse := Vector2.ZERO
 var _grab_time := 0.0
-var _normal_content := Vector2i.ZERO  # the pet window's content size, restored on letting go
 var _dpi_ratio := Vector2.ONE  # window px per content px
-var _app := ""
-var _status: Window  # created on first double-click, then reused
+var _held_window: Window  # where it dangles while held; off-screen otherwise
+var _held_sprite: PandaSprite  # always the drag frame
+var _status: Window  # created on first right-click, then reused
 var _activity_left := 0.0  # s until the AI picks the next activity
 var _walk_dir := 1.0
 var _falling := false  # showing the fall frame; latched until the pose changes (so through bounces)
@@ -126,20 +134,16 @@ var _soft_drop := false  # hopped off at the bottom of a climb: lands on its fee
 
 func _ready() -> void:
 	get_viewport().transparent_bg = true  # belt and braces with project settings
-	# PetBrain connected to Tracker first (autoloads are ready before this scene), so its
-	# category is already up to date when _on_active_app_changed runs.
-	Tracker.active_app_changed.connect(_on_active_app_changed)
 	PetBrain.mood_changed.connect(_on_mood_changed)
 	PetBrain.sleep_changed.connect(_on_sleep_changed)
 	sprite.finished.connect(_on_sprite_finished)
 	sprite.chud = PetBrain.get_state() == CHUD_STATE
 	_update_anim()
-	_refresh_label()
 
 	_pos = Vector2(get_window().position)  # start airborne: drop onto the taskbar
 	_last_mouse = _mouse()
-	_normal_content = get_window().content_scale_size
-	_dpi_ratio = Vector2(get_window().size) / Vector2(_normal_content)
+	_dpi_ratio = Vector2(get_window().size) / Vector2(get_window().content_scale_size)
+	_make_held_window()
 
 	# Optional click-through: only the area inside this polygon receives clicks;
 	# everything else passes to the desktop. Enable once dragging works.
@@ -150,41 +154,41 @@ func _ready() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		_open_status()
 	# Pick up by the tail with the left mouse button; releasing throws with the recent swing
 	# velocity.
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed and event.double_click:
-			_open_status()  # the pair's first click already did a normal pick-up and drop
-		elif event.pressed:
+		if event.pressed:
 			_grab_pos = _pos
 			_grab_mouse = _mouse()
 			_grab_time = Time.get_ticks_usec() / 1e6
 			_samples.clear()
 			_vel = Vector2.ZERO
-			_set_window_size(true)
-			# It dangles facing the way it looked: on a wall, toward the wall.
-			match pose:
-				Pose.CLING_LEFT:
-					sprite.facing_right = false
-				Pose.CLING_RIGHT:
-					sprite.facing_right = true
+			# The held window has been drawing the dangle this way round all along (see
+			# _sync_held_sprite()); the pet window will show how it looks when let go.
+			_held_sprite.facing_right = _grab_facing()
+			sprite.facing_right = _held_sprite.facing_right
 			# Teleport the tail to the cursor, hanging at rest straight below it.
-			_swing_com = _grab_mouse + Vector2(0.0, sprite.hang_arm().length() * _dpi_ratio.x)
+			_swing_com = _grab_mouse + Vector2(0.0, _held_sprite.hang_arm().length() * _dpi_ratio.x)
 			_swing_prev = _swing_com
 			_set_pose(Pose.HELD)
 			_swing_step(0.0)
-			get_window().position = Vector2i(_pos.round())
+			_held_window.position = Vector2i(_pos.round())
+			get_window().position = OFFSCREEN
 		elif pose == Pose.HELD:
-			var tap := (Time.get_ticks_usec() / 1e6 - _grab_time < TAP_TIME
-					and _mouse().distance_to(_grab_mouse) < TAP_MOVE)
+			var tap := _is_tap()
 			_vel = Vector2.ZERO if tap else _throw_velocity()
-			if absf(_vel.x) > THROW_FACE_MIN:
-				sprite.facing_right = _vel.x > 0.0
-			_set_window_size(false)
+			sprite.facing_right = _release_facing(tap)
 			_set_pose(Pose.AIRBORNE)
 			# Upright again, its body centred where the dangling body was.
 			_pos = _grab_pos if tap else _swing_com - _body_rect().get_center()
+			# Held low in a corner, that would start it below the floor and past a wall, and the
+			# wall would catch it down there, out of sight.
+			_clamp_into_bounds()
 			get_window().position = Vector2i(_pos.round())
+			_held_window.position = OFFSCREEN
+			_sync_held_sprite()
 
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		get_tree().quit()
@@ -195,6 +199,9 @@ func _physics_process(delta: float) -> void:
 	match pose:
 		Pose.HELD:
 			_swing_step(delta)
+			sprite.facing_right = _release_facing(_is_tap())  # ready for being let go
+			_held_window.position = Vector2i(_pos.round())
+			return  # the pet window waits off-screen
 		Pose.AIRBORNE:
 			_vel.y += GRAVITY * delta
 			_pos += _vel * delta
@@ -224,6 +231,7 @@ func _physics_process(delta: float) -> void:
 			if not PetBrain.sleeping:
 				_run_climb(delta)
 	get_window().position = Vector2i(_pos.round())
+	_sync_held_sprite()
 
 
 # The floor AI: count down the current activity, walk if walking, then pick what's next.
@@ -241,8 +249,10 @@ func _run_activity(delta: float) -> void:
 	if activity != Activity.IDLE:
 		_start_activity(Activity.IDLE, IDLE_TIME)
 		return
+	# The treat's share goes to eating or gaming, whichever the mood allows (else to sitting).
 	var eat := EAT_CHANCE if _can_eat() else 0.0
-	var sit := SIT_CHANCE + EAT_CHANCE - eat  # no eating: that share goes to sitting
+	var game := EAT_CHANCE if _can_game() else 0.0
+	var sit := SIT_CHANCE + EAT_CHANCE - eat - game
 	var roll := randf()
 	if roll < WALK_CHANCE:
 		_start_walk()
@@ -250,6 +260,8 @@ func _run_activity(delta: float) -> void:
 		_start_activity(Activity.SIT, SIT_TIME)
 	elif roll < WALK_CHANCE + sit + eat:
 		_start_eat()
+	elif roll < WALK_CHANCE + sit + eat + game:
+		_start_game()
 	else:
 		sprite.facing_right = not sprite.facing_right  # look the other way for a bit
 		_start_activity(Activity.IDLE, IDLE_TIME)
@@ -280,10 +292,23 @@ func _start_eat() -> void:
 	activity = Activity.EAT
 	_activity_left = INF
 	_update_anim()
+	Achievements.unlock(&"bamboo")
 
 
 func _can_eat() -> bool:
 	return PetBrain.get_state() in EAT_MOODS
+
+
+# Like a meal: nine passes of the game animation, ended by the sprite's `finished`.
+func _start_game() -> void:
+	activity = Activity.GAME
+	_activity_left = INF
+	_update_anim()
+	Achievements.unlock(&"gamer")
+
+
+func _can_game() -> bool:
+	return PetBrain.get_state() in GAME_MOODS
 
 
 # Polls the mouse rather than using motion events, so it works while the window isn't focused.
@@ -313,6 +338,7 @@ func _start_pet() -> void:
 	_pet_cooldown = PET_COOLDOWN
 	PetBrain.change_mood(PET_MOOD)
 	_update_anim()
+	Achievements.unlock(&"pats")
 
 
 # Climbing AI, in stretches and breaks on the same timer as the floor AI. Up a wall, along the
@@ -378,19 +404,17 @@ func _drop(push: float, soft: bool) -> void:
 	_soft_drop = soft
 
 
-# Held by the tail beats everything (even sleep: it's still dangling), then sleep, then falling
-# and landing; on the floor the activity picks the animation, on a wall or the roof the
-# climbing; otherwise idle.
+# The pet window's animation (held, the dangle is in the held window, even asleep). Sleep beats
+# everything, then falling and landing; on the floor the activity picks the animation, on a wall
+# or the roof the climbing; otherwise idle.
 func _update_anim() -> void:
-	if pose == Pose.HELD:
-		sprite.play(&"drag")
-	elif PetBrain.sleeping:
+	if PetBrain.sleeping:
 		sprite.play(&"sleep")
 	elif pose == Pose.AIRBORNE and _falling:
 		sprite.play(&"fall")
 	elif pose == Pose.GROUNDED and _recovering:
 		sprite.play(&"land")
-	elif pose == Pose.AIRBORNE:
+	elif pose == Pose.AIRBORNE or pose == Pose.HELD:  # held: how it looks once let go
 		sprite.play(&"idle")
 	elif pose != Pose.GROUNDED:
 		sprite.play(&"climb" if _climbing else &"cling")
@@ -402,6 +426,8 @@ func _update_anim() -> void:
 				sprite.play(&"walk")
 			Activity.EAT:
 				sprite.play(&"eat")
+			Activity.GAME:
+				sprite.play(&"game")
 			Activity.PET:
 				sprite.play(&"pet")
 			Activity.PROUD:
@@ -423,10 +449,10 @@ func _mouse() -> Vector2:
 
 # Held: one tick of the tail pendulum. The tail follows the cursor exactly, and the mass centre
 # keeps its own momentum (Verlet), falls, and is pulled back to arm's length from the tail, so
-# moving the tail swings it. The sprite turns to point from the tail to the mass centre.
+# moving the tail swings it. The held sprite turns to point from the tail to the mass centre.
 func _swing_step(delta: float) -> void:
 	var tail := _mouse()
-	var arm := sprite.hang_arm() * _dpi_ratio.x
+	var arm := _held_sprite.hang_arm() * _dpi_ratio.x
 	var swing := (_swing_com - _swing_prev) * exp(-SWING_DAMPING * delta)
 	_swing_prev = _swing_com
 	_swing_com += swing + Vector2(0.0, SWING_GRAVITY) * delta * delta
@@ -442,19 +468,69 @@ func _swing_step(delta: float) -> void:
 	_swing_com = tail + dir.normalized() * arm.length()
 	if hit_stop:
 		_swing_prev = _swing_com
-	sprite.rotation = dir.angle() - arm.angle()
-	_pos = tail - Vector2(get_window().size) / 2.0  # the tail sits at the window's centre
+	_held_sprite.rotation = dir.angle() - arm.angle()
+	_pos = tail - Vector2(_held_window.size) / 2.0  # the tail sits at the window's centre
 	var now := Time.get_ticks_usec() / 1e6
 	_samples.append([now, _swing_com])
 	while _samples.size() > 2 and now - _samples[0][0] > THROW_SAMPLE_TIME:
 		_samples.pop_front()
 
 
-# Held, the window grows to fit the swing; the content size follows it so nothing is scaled.
-func _set_window_size(held: bool) -> void:
-	var window := get_window()
-	window.content_scale_size = HELD_SIZE if held else _normal_content
-	window.size = Vector2i((Vector2(window.content_scale_size) * _dpi_ratio).round())
+# A borderless, transparent native window (subwindows aren't embedded) that only ever shows the
+# drag frame, parked off-screen until a grab. It's owned by the pet window (transient), which
+# keeps it above the always-on-top pet window and off the taskbar; Godot won't make a window both
+# transient and always-on-top.
+func _make_held_window() -> void:
+	_held_window = Window.new()
+	_held_window.borderless = true
+	_held_window.transparent = true
+	_held_window.transparent_bg = true
+	_held_window.unfocusable = true
+	_held_window.always_on_top = true
+	_held_window.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	_held_window.content_scale_size = HELD_SIZE
+	_held_window.size = Vector2i((Vector2(HELD_SIZE) * _dpi_ratio).round())
+	# Like any Window's own viewport, it would otherwise filter linearly.
+	_held_window.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+	_held_sprite = PandaSprite.new()
+	_held_window.add_child(_held_sprite)
+	add_child(_held_window)
+	_held_window.position = OFFSCREEN
+	_held_sprite.play(&"drag")
+	_sync_held_sprite()
+
+
+# Off-screen, keep the held window drawing the dangle exactly as a grab right now would start it:
+# facing the right way and hanging straight down.
+func _sync_held_sprite() -> void:
+	var facing := _grab_facing()
+	if _held_sprite.facing_right != facing:
+		_held_sprite.facing_right = facing
+	_held_sprite.rotation = Vector2.DOWN.angle() - _held_sprite.hang_arm().angle()
+
+
+# It dangles facing the way it looked: on a wall, toward the wall.
+func _grab_facing() -> bool:
+	match pose:
+		Pose.CLING_LEFT:
+			return false
+		Pose.CLING_RIGHT:
+			return true
+	return sprite.facing_right
+
+
+func _is_tap() -> bool:
+	return (Time.get_ticks_usec() / 1e6 - _grab_time < TAP_TIME
+			and _mouse().distance_to(_grab_mouse) < TAP_MOVE)
+
+
+# A throw faster than THROW_FACE_MIN sideways turns it that way; otherwise it keeps the way it
+# dangled.
+func _release_facing(tap: bool) -> bool:
+	var vel := Vector2.ZERO if tap else _throw_velocity()
+	if absf(vel.x) > THROW_FACE_MIN:
+		return vel.x > 0.0
+	return _held_sprite.facing_right
 
 
 func _throw_velocity() -> Vector2:
@@ -537,9 +613,20 @@ func _clamp_to_side_walls(stop := true) -> void:
 			_vel.x = 0.0
 
 
+# Inside the walls and on or above the floor (there's no ceiling), keeping its speed.
+func _clamp_into_bounds() -> void:
+	_clamp_to_side_walls(false)
+	var local := _body_rect()
+	var body := Rect2(_pos + local.position, local.size)
+	var bounds := _screen_bounds(body)
+	if body.end.y > bounds.end.y:
+		_pos.y -= body.end.y - bounds.end.y
+
+
 # Clinging swaps the frame (the wide fall frame for climb, or turning a corner), so it snaps to
 # the surface after the swap, using the new body rect; snapping first would leave a gap. Coming
-# down off the roof the upright frame is taller, so a wall also keeps it below the roof.
+# down off the roof the upright frame is taller, so a wall also keeps it below the roof, and
+# a fall into a lower corner can't leave it clinging below the floor.
 func _cling(to: Pose, down := false) -> void:
 	_vel = Vector2.ZERO
 	_climb_down = down
@@ -557,6 +644,8 @@ func _cling(to: Pose, down := false) -> void:
 			_clamp_to_side_walls(false)  # flush into the corner it came up
 	if to != Pose.CLING_CEILING and body.position.y < bounds.position.y:
 		_pos.y += bounds.position.y - body.position.y
+	elif to != Pose.CLING_CEILING and body.end.y > bounds.end.y:
+		_pos.y -= body.end.y - bounds.end.y
 
 
 func _set_pose(p: Pose) -> void:
@@ -573,7 +662,6 @@ func _set_pose(p: Pose) -> void:
 		_:
 			sprite.surface = PandaSprite.Surface.FLOOR
 	sprite.climbing_down = _climb_down
-	label.visible = p != Pose.HELD  # it would sit off to one side of the grown window
 	# Only a real fall ends in the landing animation; any other pose change cancels it. The hop
 	# off the bottom of a climb only happens after the whole route, so landing it is a win.
 	var proud := p == Pose.GROUNDED and _soft_drop
@@ -590,13 +678,9 @@ func _set_pose(p: Pose) -> void:
 		activity = Activity.PROUD
 		_activity_left = randf_range(PROUD_TIME.x, PROUD_TIME.y)
 		PetBrain.change_mood(PROUD_MOOD)
+		Achievements.unlock(&"summit")
 	_update_anim()
 	pose_changed.emit(p)
-
-
-func _on_active_app_changed(app: String, _title: String) -> void:
-	_app = app
-	_refresh_label()
 
 
 func _on_mood_changed(_mood: float, state: String) -> void:
@@ -604,7 +688,9 @@ func _on_mood_changed(_mood: float, state: String) -> void:
 	# Slipping out of a good mood takes the bamboo away mid-meal.
 	if activity == Activity.EAT and state not in EAT_MOODS:
 		_start_activity(Activity.IDLE, IDLE_TIME)
-	_refresh_label()
+	# ...and cheering up out of Chud ends a gaming session.
+	if activity == Activity.GAME and state not in GAME_MOODS:
+		_start_activity(Activity.IDLE, IDLE_TIME)
 
 
 func _on_sprite_finished(anim: StringName) -> void:
@@ -617,6 +703,9 @@ func _on_sprite_finished(anim: StringName) -> void:
 			_update_anim()
 		&"eat":
 			if activity == Activity.EAT:
+				_start_activity(Activity.IDLE, IDLE_TIME)
+		&"game":
+			if activity == Activity.GAME:
 				_start_activity(Activity.IDLE, IDLE_TIME)
 		&"pet":
 			if activity == Activity.PET:
@@ -633,11 +722,3 @@ func _on_sleep_changed(_sleeping: bool) -> void:
 	activity = Activity.IDLE
 	_activity_left = randf_range(SETTLE_TIME.x, SETTLE_TIME.y)
 	_update_anim()
-	_refresh_label()
-
-
-func _refresh_label() -> void:
-	label.text = "%s (%d)\n%s · %s" % [
-		"Sleeping" if PetBrain.sleeping else PetBrain.get_state(), int(PetBrain.mood),
-		"(nothing)" if _app == "" else _app, Classifier.category_name(PetBrain.category),
-	]

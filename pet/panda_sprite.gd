@@ -11,7 +11,7 @@ signal finished(anim: StringName)  # a one-shot ("sequence") animation reached i
 enum Surface { FLOOR, LEFT_WALL, RIGHT_WALL, CEILING }
 
 const SCALE := 4  # integer, so art pixels stay even
-const BOTTOM := 256.0  # the label sits below this line
+const BOTTOM := 256.0  # the floor line the frames stand on
 
 # name -> {texture, frames (regions of the sheet), fps}. The sheets use different cell widths
 # and gaps, so frames are explicit regions rather than hframes. Each region is chosen so that,
@@ -159,6 +159,19 @@ const ANIMS := {
 			Rect2(99, 0, 33, 48), Rect2(132, 0, 33, 48), Rect2(165, 0, 33, 48),
 		],
 		"fps": 6.0,
+	},
+	# pandaGamingChud.png is 8 cells of 60×47: the panda (pandaSitChud.png, 5 px in) in a gaming
+	# chair at a desk, typing. Only a Chud panda games, so it's glum already and has no plain
+	# version. It's drawn centred like the wide sleep frame; the scene is too wide to keep the body
+	# on its standing spot without clipping the desk. A session is 9 passes (~12 s, about a meal).
+	&"game": {
+		"texture": preload("res://art/pandaGamingChud.png"),
+		"frames": [
+			Rect2(0, 0, 60, 47), Rect2(60, 0, 60, 47), Rect2(120, 0, 60, 47), Rect2(180, 0, 60, 47),
+			Rect2(240, 0, 60, 47), Rect2(300, 0, 60, 47), Rect2(360, 0, 60, 47), Rect2(420, 0, 60, 47),
+		],
+		"fps": 6.0,
+		"loops": 9,
 	},
 	&"drag": {
 		"texture": preload("res://art/pandaDrag.png"),
