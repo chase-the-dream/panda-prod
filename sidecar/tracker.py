@@ -2,6 +2,8 @@
 # and sends {"app", "title", "pid", "ts"} as JSON over localhost UDP to tracker.gd.
 # Stdlib only. Normally spawned by tracker.gd; can also be run by hand for testing:
 #   python sidecar/tracker.py [--port 47823] [--interval 0.25] [--parent-pid N]
+from __future__ import annotations  # the tuple[...] hints below on Python 3.7/3.8
+
 import argparse
 import ctypes
 import json
@@ -83,8 +85,10 @@ def main() -> int:
     parser.add_argument("--interval", type=float, default=0.25)
     parser.add_argument("--parent-pid", type=int, default=0)
     args = parser.parse_args()
-    # Window titles can contain characters the console codepage can't encode.
-    sys.stdout.reconfigure(errors="replace")
+    # Window titles can contain characters the console codepage can't encode. No stdout at all
+    # (pythonw) is fine: print() then does nothing.
+    if sys.stdout is not None:
+        sys.stdout.reconfigure(errors="replace")
 
     parent = open_parent(args.parent_pid) if args.parent_pid else None
     if args.parent_pid and parent is None:
@@ -95,7 +99,8 @@ def main() -> int:
     target = ("127.0.0.1", args.port)
     print(f"[tracker] sending to {target[0]}:{target[1]}", flush=True)
 
-    ignored_pids = {os.getpid(), args.parent_pid} - {0}
+    # Our parent too: started through the py launcher, this console window belongs to py.exe.
+    ignored_pids = {os.getpid(), os.getppid(), args.parent_pid} - {0}
     state = None  # (app, title, pid) last reported
     last_send = 0.0
     try:

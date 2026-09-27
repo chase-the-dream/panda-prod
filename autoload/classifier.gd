@@ -80,8 +80,9 @@ func _set_keywords(category: Category, list: PackedStringArray) -> void:
 
 # Drop the user's custom lists and go back to the shipped defaults.
 func reset_to_defaults() -> void:
-	if FileAccess.file_exists(USER_PATH):
-		DirAccess.remove_absolute(USER_PATH)
+	for path in [USER_PATH, USER_PATH + ".tmp"]:  # a leftover .tmp would be loaded in its place
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
 	_load()
 	lists_changed.emit()
 
@@ -92,8 +93,18 @@ func _load() -> void:
 		data = SaveManager.load_json(DEFAULT_PATH)
 	if data.is_empty():
 		push_error("Classifier: could not load %s — everything will count as neutral" % DEFAULT_PATH)
-	productive = PackedStringArray(data.get("productive", []))
-	distracting = PackedStringArray(data.get("distracting", []))
+	productive = _strings(data.get("productive"))
+	distracting = _strings(data.get("distracting"))
+
+
+# The strings in a loaded list; anything else (a hand-edited or damaged file) is skipped.
+func _strings(value: Variant) -> PackedStringArray:
+	var out := PackedStringArray()
+	if value is Array:
+		for item in value:
+			if item is String:
+				out.append(item)
+	return out
 
 
 func _matches(keywords: PackedStringArray, app: String, title: String) -> bool:

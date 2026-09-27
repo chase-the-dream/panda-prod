@@ -33,10 +33,17 @@ var _last_state := ""
 
 func _ready() -> void:
 	# Resume exactly where the last run left off; time spent closed doesn't count.
+	# Values of the wrong type (a hand-edited or damaged file) are ignored, not fatal.
 	var data := SaveManager.load_json(SaveManager.SAVE_PATH)
-	mood = clampf(float(data.get("mood", mood)), MOOD_MIN, MOOD_MAX)
-	pet_name = _clean_name(str(data.get("name", DEFAULT_NAME)), DEFAULT_NAME)
-	sleeping = bool(data.get("sleeping", false))
+	var saved_mood = data.get("mood")
+	if saved_mood is float or saved_mood is int:
+		mood = clampf(float(saved_mood), MOOD_MIN, MOOD_MAX)
+	var saved_name = data.get("name")
+	if saved_name is String:
+		pet_name = _clean_name(saved_name, DEFAULT_NAME)
+	var saved_sleeping = data.get("sleeping")
+	if saved_sleeping is bool:
+		sleeping = saved_sleeping
 
 	Tracker.active_app_changed.connect(_on_active_app_changed)
 	Classifier.lists_changed.connect(_reclassify)
@@ -49,7 +56,8 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
-	save()
+	if not Tracker.another_instance:  # a second copy quitting mustn't overwrite the running one's save
+		save()
 
 
 func save() -> void:
@@ -81,7 +89,8 @@ func set_sleeping(value: bool) -> void:
 
 
 func _clean_name(raw: String, fallback: String) -> String:
-	var cleaned := raw.strip_edges().left(NAME_MAX_LENGTH)
+	# One line: the name tag has room for one.
+	var cleaned := raw.replace("\n", " ").replace("\r", " ").replace("\t", " ").strip_edges().left(NAME_MAX_LENGTH)
 	return cleaned if not cleaned.is_empty() else fallback
 
 

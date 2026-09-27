@@ -3,7 +3,7 @@
 # edges all move the window itself. Collisions use the sprite's rect against the usable
 # (taskbar-excluded) rect of the monitor it's on. On the floor, a small activity AI has the
 # panda idle, sit, walk and, in a good mood, eat. Picked up, it dangles by its tail from the
-# cursor and swings like a pendulum (the window grows to fit the swing). On a wall
+# cursor and swings like a pendulum (in a second, bigger window that fits the swing). On a wall
 # it climbs up in stretches with breaks, along the roof to the far wall and head-first down that,
 # hopping off near the floor, proud of itself (+mood); any break may end in a fall. Once it's really
 # falling it shows the fall frame, and landing like that plays a one-shot flop, blink and
@@ -59,6 +59,12 @@ const SWING_DAMPING := 1.4  # exponential swing decay per second
 const SWING_MAX_ANGLE := deg_to_rad(45.0)  # either side of hanging straight down
 const TAP_TIME := 0.15  # s
 const TAP_MOVE := 8.0  # px of mouse travel
+
+# Clicks only land on the sprite's rect; the rest of the window passes them through to whatever is
+# behind (including the taskbar strip the window hangs over). The window's picture lags a few
+# frames behind, so the clickable area grows at once but shrinks only after this long, rather than
+# clipping the outgoing frame (e.g. waking from the wide sleep frame).
+const HIT_SHRINK_DELAY := 0.1  # s
 
 # Activity AI. Durations are [min, max] seconds; a meal is two passes of the eat animation
 # (~12.7 s), and a gaming session nine passes of the game animation (~12 s). Averaged out, a panda
@@ -130,6 +136,8 @@ var _last_mouse := Vector2.ZERO
 var _climbing := false  # moving along the wall or roof, rather than resting
 var _climb_down := false  # on a wall, head-first toward the floor
 var _soft_drop := false  # hopped off at the bottom of a climb: lands on its feet, no flop
+var _hit_rect := Rect2i()  # the clickable part of the pet window, window px
+var _hit_shrink_left := HIT_SHRINK_DELAY
 
 
 func _ready() -> void:
@@ -144,17 +152,14 @@ func _ready() -> void:
 	_last_mouse = _mouse()
 	_dpi_ratio = Vector2(get_window().size) / Vector2(get_window().content_scale_size)
 	_make_held_window()
-
-	# Optional click-through: only the area inside this polygon receives clicks;
-	# everything else passes to the desktop. Enable once dragging works.
-	# var r := Rect2(sprite.global_position - sprite.get_rect().size / 2, sprite.get_rect().size)
-	# DisplayServer.window_set_mouse_passthrough(PackedVector2Array([
-	# 	r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)
-	# ]))
+	_held_window.window_input.connect(_on_held_window_input)
+	_update_hit_region(0.0)
 
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+	# Not while held: the status window would take focus, and the mouse-up would miss this window.
+	if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed
+			and pose != Pose.HELD):
 		_open_status()
 	# Pick up by the tail with the left mouse button; releasing throws with the recent swing
 	# velocity.
@@ -176,22 +181,37 @@ func _input(event: InputEvent) -> void:
 			_swing_step(0.0)
 			_held_window.position = Vector2i(_pos.round())
 			get_window().position = OFFSCREEN
-		elif pose == Pose.HELD:
-			var tap := _is_tap()
-			_vel = Vector2.ZERO if tap else _throw_velocity()
-			sprite.facing_right = _release_facing(tap)
-			_set_pose(Pose.AIRBORNE)
-			# Upright again, its body centred where the dangling body was.
-			_pos = _grab_pos if tap else _swing_com - _body_rect().get_center()
-			# Held low in a corner, that would start it below the floor and past a wall, and the
-			# wall would catch it down there, out of sight.
-			_clamp_into_bounds()
-			get_window().position = Vector2i(_pos.round())
-			_held_window.position = OFFSCREEN
-			_sync_held_sprite()
+		else:
+			_release()
 
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		get_tree().quit()
+
+
+# The mouse-up normally reaches the pet window, which captured the mouse on the press. If something
+# took that capture away mid-hold it lands on the held window under the cursor instead, and
+# without this the panda would stay stuck to the cursor.
+func _on_held_window_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		_release()
+
+
+# Let go: a throw with the recent swing velocity, or after a tap, back exactly where it was.
+func _release() -> void:
+	if pose != Pose.HELD:
+		return
+	var tap := _is_tap()
+	_vel = Vector2.ZERO if tap else _throw_velocity()
+	sprite.facing_right = _release_facing(tap)
+	_set_pose(Pose.AIRBORNE)
+	# Upright again, its body centred where the dangling body was.
+	_pos = _grab_pos if tap else _swing_com - _body_rect().get_center()
+	# Held low in a corner, that would start it below the floor and past a wall, and the
+	# wall would catch it down there, out of sight.
+	_clamp_into_bounds()
+	get_window().position = Vector2i(_pos.round())
+	_held_window.position = OFFSCREEN
+	_sync_held_sprite()
 
 
 func _physics_process(delta: float) -> void:
@@ -227,11 +247,15 @@ func _physics_process(delta: float) -> void:
 			# Every tick, not just while moving: frames differ in width (sleep is much wider),
 			# so switching animation next to a wall could otherwise leave the body inside it.
 			_clamp_to_side_walls()
+			_stay_on_floor()
 		_:
 			if not PetBrain.sleeping:
 				_run_climb(delta)
+			if pose != Pose.AIRBORNE:  # unless the climb just let go
+				_snap_to_surface()
 	get_window().position = Vector2i(_pos.round())
 	_sync_held_sprite()
+	_update_hit_region(delta)
 
 
 # The floor AI: count down the current activity, walk if walking, then pick what's next.
@@ -477,9 +501,8 @@ func _swing_step(delta: float) -> void:
 
 
 # A borderless, transparent native window (subwindows aren't embedded) that only ever shows the
-# drag frame, parked off-screen until a grab. It's owned by the pet window (transient), which
-# keeps it above the always-on-top pet window and off the taskbar; Godot won't make a window both
-# transient and always-on-top.
+# drag frame, parked off-screen until a grab. Always on top like the pet window, and unfocusable,
+# which also keeps it off the taskbar.
 func _make_held_window() -> void:
 	_held_window = Window.new()
 	_held_window.borderless = true
@@ -623,18 +646,36 @@ func _clamp_into_bounds() -> void:
 		_pos.y -= body.end.y - bounds.end.y
 
 
+# The floor can move under a settled pet (a resolution change, the taskbar resized or moved, a
+# monitor unplugged): lift it back up if it's now below the floor, and let it fall if it's above.
+func _stay_on_floor() -> void:
+	var local := _body_rect()
+	var body := Rect2(_pos + local.position, local.size)
+	var floor_y := _screen_bounds(body).end.y
+	if body.end.y > floor_y:
+		_pos.y -= body.end.y - floor_y
+	elif body.end.y < floor_y - 1.0:
+		_set_pose(Pose.AIRBORNE)
+
+
 # Clinging swaps the frame (the wide fall frame for climb, or turning a corner), so it snaps to
-# the surface after the swap, using the new body rect; snapping first would leave a gap. Coming
-# down off the roof the upright frame is taller, so a wall also keeps it below the roof, and
-# a fall into a lower corner can't leave it clinging below the floor.
+# the surface after the swap, using the new body rect; snapping first would leave a gap.
 func _cling(to: Pose, down := false) -> void:
 	_vel = Vector2.ZERO
 	_climb_down = down
 	_set_pose(to)
+	_snap_to_surface()
+
+
+# Flush against the wall or roof it's clinging to. Coming down off the roof the upright frame is
+# taller, so a wall also keeps it below the roof, and a fall into a lower corner can't leave it
+# clinging below the floor. Also run every tick, so it stays on its surface when the screen
+# changes under it or a frame of another size swaps in (the wide sleep frame).
+func _snap_to_surface() -> void:
 	var local := _body_rect()
 	var body := Rect2(_pos + local.position, local.size)
 	var bounds := _screen_bounds(body)
-	match to:
+	match pose:
 		Pose.CLING_LEFT:
 			_pos.x += bounds.position.x - body.position.x
 		Pose.CLING_RIGHT:
@@ -642,10 +683,32 @@ func _cling(to: Pose, down := false) -> void:
 		Pose.CLING_CEILING:
 			_pos.y += bounds.position.y - body.position.y
 			_clamp_to_side_walls(false)  # flush into the corner it came up
-	if to != Pose.CLING_CEILING and body.position.y < bounds.position.y:
+	if pose != Pose.CLING_CEILING and body.position.y < bounds.position.y:
 		_pos.y += bounds.position.y - body.position.y
-	elif to != Pose.CLING_CEILING and body.end.y > bounds.end.y:
+	elif pose != Pose.CLING_CEILING and body.end.y > bounds.end.y:
 		_pos.y -= body.end.y - bounds.end.y
+
+
+# Only the sprite's rect takes clicks (see HIT_SHRINK_DELAY). Set only when it changes: each set
+# replaces the native window region.
+func _update_hit_region(delta: float) -> void:
+	var local := _body_rect()
+	var want := Rect2i(Vector2i(local.position.floor()), Vector2i((local.end.ceil() - local.position.floor())))
+	if want == _hit_rect:
+		_hit_shrink_left = HIT_SHRINK_DELAY
+		return
+	if _hit_rect.encloses(want):
+		_hit_shrink_left -= delta
+		if _hit_shrink_left > 0.0:
+			return
+	elif _hit_rect.has_area():
+		want = want.merge(_hit_rect)  # growing: keep the old area until the new picture is up
+	_hit_rect = want
+	_hit_shrink_left = HIT_SHRINK_DELAY
+	get_window().mouse_passthrough_polygon = PackedVector2Array([
+		Vector2(want.position), Vector2(want.end.x, want.position.y),
+		Vector2(want.end), Vector2(want.position.x, want.end.y),
+	])
 
 
 func _set_pose(p: Pose) -> void:
