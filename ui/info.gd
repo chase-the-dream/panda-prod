@@ -18,7 +18,7 @@ const SECTIONS := [
 	["Mood", "His mood runs from 1 to 100. It rises while you use productive apps, drops slowly on everything else and faster on distracting ones. Low is Chud, the middle is Content, high is Chad. A happy panda munches bamboo; a Chud one plays video games instead. Petting him and watching him finish a climb cheer him up."],
 	["Petting", "Rub your cursor back and forth over him while he's standing on the ground. He needs a little while before he can be petted again."],
 	["Sleep", "Stepping away? The moon button puts him to sleep and his mood stays frozen while he naps. The sun wakes him up. You can still carry him around while he sleeps."],
-	["Config (the ! tab)", "The Distractions and Productives lists decide how an app counts. An entry matches any app or window title that contains it, and capitals don't matter. If both lists match, Distractions win. Type an entry and press the green arrow or Enter to add it; X removes one. Changes save right away."],
+	["Config (the ! tab)", "The Distractions and Productives lists decide how an app counts. Both start empty, so add your own, like the name of your code editor or a site you lose time on. An entry matches any app or window title that contains it, and capitals don't matter. If both lists match, Distractions win. Type an entry and press the green arrow or Enter to add it; X removes one. Changes save right away."],
 	["Achievements (the trophy tab)", "A checklist of things to catch your panda doing. Click one for a hint."],
 	["This Window", "Drag it around by the pencil and close it with the X. Click the name tag to rename your panda."],
 ]

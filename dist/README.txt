@@ -15,7 +15,9 @@ USING IT
 - Right-click him to open his status window: mood, name, sleep mode,
   settings, achievements and help (the "?" tab).
 - His mood rises while you use productive apps and drops on distracting
-  ones. Edit both lists in the status window's "!" tab.
+  ones. Both lists start empty: add your own apps and sites in the status
+  window's "!" tab (e.g. "Code" or "YouTube"). Until you do, everything
+  counts as neutral and his mood slowly drops.
 - To quit: click him, then press Esc.
 
 NOTES
