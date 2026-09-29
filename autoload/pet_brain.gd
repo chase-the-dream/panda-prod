@@ -11,7 +11,7 @@ signal sleep_changed(sleeping: bool)
 const PRODUCTIVE_RATE := 3.0
 const NEUTRAL_RATE := -1.0
 const DISTRACTING_RATE := -4.0
-const RATE_SCALE := 30.0  # debug speed-up; e.g. 30 to see state changes within seconds
+const RATE_SCALE := 1.0  # debug speed-up; e.g. 30 to see state changes within seconds
 const AUTOSAVE_INTERVAL := 30.0  # s; also saved on exit
 
 const MOOD_MIN := 1.0
